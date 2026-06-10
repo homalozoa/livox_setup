@@ -2,46 +2,45 @@
 
 自动发现 Livox Mid-360/Mid-360s 雷达并适配 ROS2 驱动。
 
-## 快速开始
+## 首次安装（新机器）
+
+```bash
+cd ~/livox_ws/src/livox_setup
+sudo ./install.sh
+```
+
+一键完成：ROS2 Jazzy + Livox SDK2 + livox_ros_driver2 + 网络配置 + 开机自启动。
+
+自定义参数：`sudo ./install.sh enp170s0 192.168.1.250`
+
+## 日常使用
 
 ```bash
 cd ~/livox_ws/src/livox_setup
 ./start_lidar.sh
 ```
 
+自动发现雷达 IP → 生成配置 → 启动驱动。
+
 ## 脚本说明
 
 | 脚本 | 功能 |
 |------|------|
+| `install.sh` | 首次安装所有依赖（需 sudo） |
+| `start_lidar.sh` | 一键启动雷达 |
 | `setup_network.sh` | 配置雷达网口静态 IP |
 | `discover_lidar.sh` | 自动发现雷达 IP |
-| `start_lidar.sh` | 一键启动（网络配置 + 雷达发现 + 驱动启动） |
-
-## 参数
-
-```bash
-./start_lidar.sh [网口名] [主机IP]
-# 默认: enp170s0, 192.168.1.250
-```
 
 ## 开机自启动
 
-网络配置已通过 systemd 服务 `livox-network.service` 实现开机自启动。
+网口 IP 配置通过两种方式保证开机生效：
+
+1. **NetworkManager** — `autoconnect: yes` + 静态 IP（主）
+2. **livox-network.service** — systemd oneshot（备用）
 
 ```bash
-# 查看服务状态
 sudo systemctl status livox-network.service
-
-# 手动启停
-sudo systemctl start livox-network.service
-sudo systemctl stop livox-network.service
 ```
-
-## 依赖
-
-- ROS2 Jazzy
-- Livox SDK2 (`/usr/local/lib/liblivox_lidar_sdk_shared.so`)
-- livox_ros_driver2 (`~/livox_ws`)
 
 ## 网络拓扑
 
