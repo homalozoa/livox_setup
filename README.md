@@ -11,7 +11,7 @@ sudo ./install.sh
 
 一键完成：ROS2 Jazzy + Livox SDK2 + livox_ros_driver2 + 网络配置 + 开机自启动。
 
-自定义参数：`sudo ./install.sh enp170s0 192.168.1.250`
+不传参会自动检测雷达网口和 IP，也可手动指定：`sudo ./install.sh enp170s0 192.168.1.250`
 
 ## 日常使用
 
@@ -20,7 +20,7 @@ cd ~/livox_ws/src/livox_setup
 ./start_lidar.sh
 ```
 
-自动发现雷达 IP → 生成配置 → 启动驱动。
+自动检测网口 → 发现雷达 IP → 生成配置 → 启动驱动。无需任何参数。
 
 ## 脚本说明
 
@@ -28,6 +28,7 @@ cd ~/livox_ws/src/livox_setup
 |------|------|
 | `install.sh` | 首次安装所有依赖（需 sudo） |
 | `start_lidar.sh` | 一键启动雷达 |
+| `detect_iface.sh` | 自动检测雷达网口（抓 Livox 广播包） |
 | `setup_network.sh` | 配置雷达网口静态 IP |
 | `discover_lidar.sh` | 自动发现雷达 IP |
 

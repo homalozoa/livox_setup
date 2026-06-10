@@ -2,12 +2,18 @@
 # Livox 雷达环境一键安装
 # 用法: sudo ./install.sh [网口名] [主机IP]
 # 示例: sudo ./install.sh enp170s0 192.168.1.250
+# 不传网口名则自动检测
 
 set -e
 
-IFACE="${1:-enp170s0}"
-HOST_IP="${2:-192.168.1.250}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+IFACE="${1:-}"
+if [ -z "$IFACE" ]; then
+    IFACE=$("$SCRIPT_DIR/detect_iface.sh" 2>/dev/null || echo enp170s0)
+    echo "[INFO] 自动检测网口: $IFACE"
+fi
+HOST_IP="${2:-192.168.1.250}"
 
 echo "=========================================="
 echo "  Livox 雷达环境一键安装"
@@ -45,7 +51,6 @@ else
     cd "$TMPDIR"
     git clone --depth 1 https://github.com/Livox-SDK/Livox-SDK2.git >/dev/null 2>&1
     cd Livox-SDK2
-    # GCC 13+ 需要 cstdint
     sed -i 's/set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")/set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -include cstdint")/' CMakeLists.txt
     mkdir build && cd build
     cmake .. >/dev/null 2>&1
@@ -79,7 +84,6 @@ fi
 # ------ Step 5: 网络 + systemd service ------
 echo "[5/5] 配置网络和开机自启动..."
 
-# NetworkManager 持久化配置
 CON_NAME=$(nmcli -t -f NAME,DEVICE con show | grep "$IFACE" | cut -d: -f1)
 if [ -z "$CON_NAME" ]; then
     nmcli con add type ethernet ifname "$IFACE" con-name "livox-$IFACE" >/dev/null
@@ -88,7 +92,6 @@ fi
 nmcli con mod "$CON_NAME" ipv4.addresses "${HOST_IP}/24" ipv4.method manual
 nmcli con up "$CON_NAME" >/dev/null 2>&1
 
-# systemd service（双重保险）
 cat > /etc/systemd/system/livox-network.service << EOF
 [Unit]
 Description=Livox 雷达网口配置
@@ -117,7 +120,4 @@ echo ""
 echo "启动雷达:"
 echo "  cd $LIVOX_WS/src/livox_setup"
 echo "  ./start_lidar.sh"
-echo ""
-echo "自定义参数:"
-echo "  ./start_lidar.sh [网口名] [主机IP]"
 echo ""
