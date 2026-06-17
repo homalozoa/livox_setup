@@ -7,6 +7,11 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TARGET_USER="${SUDO_USER:-$(id -un)}"
+TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+if [ -z "$TARGET_HOME" ]; then
+    TARGET_HOME="$HOME"
+fi
 
 IFACE="${1:-}"
 if [ -z "$IFACE" ]; then
@@ -28,7 +33,7 @@ apt install -y software-properties-common curl gnupg lsb-release cmake git libei
 
 # ------ Step 2: ROS2 Jazzy ------
 echo "[2/5] 安装 ROS2 Jazzy..."
-if ! command -v ros2 &>/dev/null; then
+if [ ! -f /opt/ros/jazzy/setup.bash ]; then
     curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
         -o /usr/share/keyrings/ros-archive-keyring.gpg
     ARCH=$(dpkg --print-architecture)
@@ -39,7 +44,7 @@ if ! command -v ros2 &>/dev/null; then
     apt install -y ros-jazzy-ros-base ros-jazzy-pcl-ros ros-jazzy-tf2-ros python3-colcon-common-extensions >/dev/null
     echo "  [OK] ROS2 Jazzy 已安装"
 else
-    echo "  [SKIP] ROS2 已存在: $(ros2 --version 2>&1 | head -1)"
+    echo "  [SKIP] ROS2 Jazzy 已存在: /opt/ros/jazzy/setup.bash"
 fi
 
 # ------ Step 3: Livox SDK2 ------
@@ -51,9 +56,8 @@ else
     cd "$TMPDIR"
     git clone --depth 1 https://github.com/Livox-SDK/Livox-SDK2.git >/dev/null 2>&1
     cd Livox-SDK2
-    sed -i 's/set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")/set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -include cstdint")/' CMakeLists.txt
     mkdir build && cd build
-    cmake .. >/dev/null 2>&1
+    cmake .. -DCMAKE_CXX_FLAGS="-include cstdint" >/dev/null 2>&1
     make -j$(nproc) >/dev/null 2>&1
     make install >/dev/null 2>&1
     ldconfig
@@ -63,7 +67,7 @@ fi
 
 # ------ Step 4: livox_ros_driver2 ------
 echo "[4/5] 安装 livox_ros_driver2..."
-LIVOX_WS="$HOME/livox_ws"
+LIVOX_WS="${LIVOX_WS:-$TARGET_HOME/livox_ws}"
 if [ -d "$LIVOX_WS/install/livox_ros_driver2" ]; then
     echo "  [SKIP] livox_ros_driver2 已安装"
 else
@@ -79,6 +83,9 @@ else
     cd "$LIVOX_WS"
     colcon build --cmake-args -DROS_EDITION=ROS2 -DDISTRO_ROS=jazzy --packages-select livox_ros_driver2 >/dev/null 2>&1
     echo "  [OK] livox_ros_driver2 已安装"
+fi
+if [ "$TARGET_USER" != "root" ]; then
+    chown -R "$TARGET_USER:$TARGET_USER" "$LIVOX_WS"
 fi
 
 # ------ Step 5: 网络 + systemd service ------
@@ -109,6 +116,7 @@ EOF
 
 systemctl daemon-reload
 systemctl enable livox-network.service >/dev/null 2>&1
+systemctl restart livox-network.service >/dev/null 2>&1
 echo "  [OK] 网络已配置，开机自启动已启用"
 
 # ------ 完成 ------
@@ -118,6 +126,6 @@ echo "  安装完成！"
 echo "=========================================="
 echo ""
 echo "启动雷达:"
-echo "  cd $LIVOX_WS/src/livox_setup"
+echo "  cd $SCRIPT_DIR"
 echo "  ./start_lidar.sh"
 echo ""
